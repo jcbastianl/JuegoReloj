@@ -30,16 +30,19 @@ class GameController:
         if self.model.is_game_over or self.model.game_mode != 'manual':
             return
         
-        # Si hay una revelación pendiente, cualquier clic la completa
+        # Si hay una revelación pendiente, solo aceptar clic en el montón correcto
         if self.model.pending_reveal:
-            revealed_card = self.model.complete_manual_move()
-            if revealed_card:
-                self.view.show_revealed_card(revealed_card)
-                self.view.show_status_message(f"Nueva carta revelada: {revealed_card}. Haz clic en el montón correcto.")
+            if pile_index == self.model.pending_reveal:
+                revealed_card = self.model.try_reveal_from_pile(pile_index)
+                if revealed_card:
+                    self.view.show_revealed_card(revealed_card, pile_index)
+                    self.view.show_status_message(f"Nueva carta revelada: {revealed_card}. Haz clic en el montón correcto para moverla.")
+                else:
+                    self.model.is_game_over = True
+                    self.parent.after(1000, self.check_game_over)
+                self.update_view()
             else:
-                self.model.is_game_over = True
-                self.parent.after(1000, self.check_game_over)
-            self.update_view()
+                self.view.show_status_message(f"Debes hacer clic en el montón {self.model.pending_reveal} para revelar la siguiente carta.")
             return
         
         # Lógica normal de movimiento
@@ -47,7 +50,7 @@ class GameController:
         self.view.show_status_message(message)
         
         if success:
-            # Ocultar carta revelada y actualizar
+            # Ocultar carta revelada anterior y actualizar
             self.view.hide_revealed_card()
             self.update_view()
         

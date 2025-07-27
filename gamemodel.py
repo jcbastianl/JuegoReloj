@@ -99,19 +99,19 @@ class GameModel:
             self.piles_visible[expected_destination] = card_to_move
             self.last_move_from = expected_destination
             
-            # Preparar para revelar la siguiente carta
+            # Preparar para revelar la siguiente carta DESDE EL MISMO MONTÓN
             self.pending_reveal = expected_destination
             self.current_card = None  # Temporalmente sin carta actual
             
-            message = f"Carta {card_to_move} colocada en montón {expected_destination}. Haz clic para revelar la siguiente."
+            message = f"Carta {card_to_move} colocada en montón {expected_destination}. Haz clic en el montón {expected_destination} para revelar la siguiente."
             return True, message
         else:
             message = f"Movimiento incorrecto. La carta {self.current_card} debe ir al montón {expected_destination}."
             return False, message
 
-    def complete_manual_move(self):
-        """Completa el movimiento manual revelando la siguiente carta"""
-        if self.pending_reveal:
+    def try_reveal_from_pile(self, clicked_pile):
+        """Intenta revelar una carta del montón especificado (solo si es el correcto)"""
+        if self.pending_reveal and clicked_pile == self.pending_reveal:
             return self.reveal_next_card(self.pending_reveal)
         return None
 

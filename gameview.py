@@ -17,6 +17,7 @@ class GameView(tk.Frame):
         self.pile_positions = self._calculate_positions()
         self.animation_running = False
         self.revealed_card = None  # Para mostrar la carta recién revelada
+        self.revealed_pile = None  # En qué montón se reveló la carta
 
         self.canvas = tk.Canvas(self, bg="darkgreen", width=ANCHO_CANVAS, height=ALTO_CANVAS, highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -40,9 +41,38 @@ class GameView(tk.Frame):
         visible_piles = board_state['visible']
         hidden_counts = board_state['hidden_counts']
         current_card = board_state.get('current_card')
+        pending_reveal = board_state.get('pending_reveal')
 
         for i in range(1, 14):
             x, y = self.pile_positions[i]
+            
+            # Resaltar el montón donde se debe hacer clic para revelar
+            if pending_reveal == i:
+                self.canvas.create_rectangle(
+                    x - 8, y - 8, 
+                    x + ANCHO_CARTA + 8, y + ALTO_CARTA + 8,
+                    fill="", outline="lime", width=5, tags="monton"
+                )
+                # Agregar texto indicativo
+                self.canvas.create_text(
+                    x + ANCHO_CARTA / 2, y - 25,
+                    text="CLICK AQUÍ", fill="lime", 
+                    font=("Arial", 10, "bold"), tags="monton"
+                )
+            
+            # Resaltar el destino correcto cuando hay carta actual
+            elif current_card and self.get_card_destination(current_card) == i:
+                self.canvas.create_rectangle(
+                    x - 6, y - 6, 
+                    x + ANCHO_CARTA + 6, y + ALTO_CARTA + 6,
+                    fill="", outline="orange", width=3, tags="monton"
+                )
+                # Agregar texto indicativo
+                self.canvas.create_text(
+                    x + ANCHO_CARTA / 2, y - 25,
+                    text="DESTINO", fill="orange", 
+                    font=("Arial", 9, "bold"), tags="monton"
+                )
             
             # 1. Dibujar el efecto de montón con cartas ocultas (más visible)
             if hidden_counts[i] > 0:
@@ -81,28 +111,39 @@ class GameView(tk.Frame):
                 text=str(i), fill="white", font=("Arial", 12, "bold"), tags="monton"
             )
 
-        # 4. Mostrar carta revelada flotante (en modo manual)
-        if self.revealed_card:
-            # Mostrar la carta revelada en una posición central flotante
-            center_x = ANCHO_CANVAS / 2 - ANCHO_CARTA / 2
-            center_y = ALTO_CANVAS / 2 - ALTO_CARTA / 2 - 50
+        # 4. Mostrar carta revelada en su posición original (no en el centro)
+        if self.revealed_card and self.revealed_pile:
+            pile_x, pile_y = self.pile_positions[self.revealed_pile]
             
-            # Fondo semi-transparente
+            # Dibujar un borde brillante alrededor del montón donde se reveló
             self.canvas.create_rectangle(
-                center_x - 5, center_y - 5, 
-                center_x + ANCHO_CARTA + 5, center_y + ALTO_CARTA + 5,
-                fill="yellow", outline="orange", width=3, tags="revealed"
+                pile_x - 5, pile_y - 5, 
+                pile_x + ANCHO_CARTA + 5, pile_y + ALTO_CARTA + 5,
+                fill="", outline="yellow", width=4, tags="revealed"
             )
             
+            # Mostrar la carta revelada ligeramente desplazada para que se vea
+            offset_x = -15
+            offset_y = -15
+            
+            # Fondo para la carta revelada
+            self.canvas.create_rectangle(
+                pile_x + offset_x - 2, pile_y + offset_y - 2, 
+                pile_x + offset_x + ANCHO_CARTA + 2, pile_y + offset_y + ALTO_CARTA + 2,
+                fill="yellow", outline="orange", width=2, tags="revealed"
+            )
+            
+            # La carta revelada
             img = self.assets.get_image(self.revealed_card)
             if img:
-                self.canvas.create_image(center_x, center_y, image=img, anchor='nw', tags="revealed")
+                self.canvas.create_image(pile_x + offset_x, pile_y + offset_y, image=img, anchor='nw', tags="revealed")
                 
+            # Texto indicativo
             destination = self.get_card_destination(self.revealed_card)
             self.canvas.create_text(
-                center_x + ANCHO_CARTA / 2, center_y + ALTO_CARTA + 15,
-                text=f"Debe ir al montón {destination}", fill="white", 
-                font=("Arial", 12, "bold"), tags="revealed"
+                pile_x + offset_x + ANCHO_CARTA / 2, pile_y + offset_y + ALTO_CARTA + 15,
+                text=f"→ Montón {destination}", fill="white", 
+                font=("Arial", 10, "bold"), tags="revealed"
             )
 
         # 5. Actualizar el texto de la carta actual
@@ -112,15 +153,17 @@ class GameView(tk.Frame):
         else:
              self.current_card_label.config(text="No hay carta actual")
 
-    def show_revealed_card(self, card):
-        """Muestra una carta recién revelada en modo manual"""
+    def show_revealed_card(self, card, pile):
+        """Muestra una carta recién revelada en su montón original"""
         self.revealed_card = card
+        self.revealed_pile = pile
         self.canvas.delete("revealed")
         self.draw_board(self.controller.model.get_board_state())
     
     def hide_revealed_card(self):
         """Oculta la carta revelada"""
         self.revealed_card = None
+        self.revealed_pile = None
         self.canvas.delete("revealed")
     
     def animate_card_move(self, card, from_pile, to_pile, callback=None):
