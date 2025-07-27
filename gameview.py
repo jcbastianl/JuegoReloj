@@ -5,8 +5,8 @@ import math
 
 ANCHO_CARTA, ALTO_CARTA = 75, 110
 ANCHO_CANVAS, ALTO_CANVAS = 800, 700
-OFFSET_MONTON_X = 1
-OFFSET_MONTON_Y = 1
+OFFSET_MONTON_X = 3
+OFFSET_MONTON_Y = 3
 
 class GameView(tk.Frame):
     def __init__(self, parent, controller, asset_manager):
@@ -15,6 +15,8 @@ class GameView(tk.Frame):
         self.controller = controller
         self.assets = asset_manager 
         self.pile_positions = self._calculate_positions()
+        self.animation_running = False
+        self.revealed_card = None  # Para mostrar la carta recién revelada
 
         self.canvas = tk.Canvas(self, bg="darkgreen", width=ANCHO_CANVAS, height=ALTO_CANVAS, highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -42,12 +44,21 @@ class GameView(tk.Frame):
         for i in range(1, 14):
             x, y = self.pile_positions[i]
             
-            # 1. Dibujar el efecto de montón con cartas ocultas (solo si hay cartas ocultas)
+            # 1. Dibujar el efecto de montón con cartas ocultas (más visible)
             if hidden_counts[i] > 0:
-                for j in range(min(hidden_counts[i], 4)):
+                # Dibujar varias capas para efecto de montón
+                for j in range(min(hidden_counts[i], 5)):
                      self.canvas.create_image(
                         x - j * OFFSET_MONTON_X, y - j * OFFSET_MONTON_Y,
                         image=self.assets.get_image('back'), anchor='nw', tags="monton"
+                    )
+                
+                # Agregar número de cartas en el montón
+                if hidden_counts[i] > 1:
+                    self.canvas.create_text(
+                        x + ANCHO_CARTA - 10, y + 10,
+                        text=str(hidden_counts[i]), fill="yellow", 
+                        font=("Arial", 10, "bold"), tags="monton"
                     )
 
             # 2. Dibujar la carta visible (solo si hay una carta visible)
@@ -70,12 +81,78 @@ class GameView(tk.Frame):
                 text=str(i), fill="white", font=("Arial", 12, "bold"), tags="monton"
             )
 
-        # 4. Actualizar el texto de la carta actual
+        # 4. Mostrar carta revelada flotante (en modo manual)
+        if self.revealed_card:
+            # Mostrar la carta revelada en una posición central flotante
+            center_x = ANCHO_CANVAS / 2 - ANCHO_CARTA / 2
+            center_y = ALTO_CANVAS / 2 - ALTO_CARTA / 2 - 50
+            
+            # Fondo semi-transparente
+            self.canvas.create_rectangle(
+                center_x - 5, center_y - 5, 
+                center_x + ANCHO_CARTA + 5, center_y + ALTO_CARTA + 5,
+                fill="yellow", outline="orange", width=3, tags="revealed"
+            )
+            
+            img = self.assets.get_image(self.revealed_card)
+            if img:
+                self.canvas.create_image(center_x, center_y, image=img, anchor='nw', tags="revealed")
+                
+            destination = self.get_card_destination(self.revealed_card)
+            self.canvas.create_text(
+                center_x + ANCHO_CARTA / 2, center_y + ALTO_CARTA + 15,
+                text=f"Debe ir al montón {destination}", fill="white", 
+                font=("Arial", 12, "bold"), tags="revealed"
+            )
+
+        # 5. Actualizar el texto de la carta actual
         if current_card:
              destination = self.get_card_destination(current_card)
              self.current_card_label.config(text=f"Carta Actual: {current_card} → Montón {destination}")
         else:
              self.current_card_label.config(text="No hay carta actual")
+
+    def show_revealed_card(self, card):
+        """Muestra una carta recién revelada en modo manual"""
+        self.revealed_card = card
+        self.canvas.delete("revealed")
+        self.draw_board(self.controller.model.get_board_state())
+    
+    def hide_revealed_card(self):
+        """Oculta la carta revelada"""
+        self.revealed_card = None
+        self.canvas.delete("revealed")
+    
+    def animate_card_move(self, card, from_pile, to_pile, callback=None):
+        """Anima el movimiento de una carta de un montón a otro"""
+        if self.animation_running:
+            return
+            
+        self.animation_running = True
+        from_x, from_y = self.pile_positions[from_pile]
+        to_x, to_y = self.pile_positions[to_pile]
+        
+        # Crear carta animada
+        img = self.assets.get_image(card)
+        if img:
+            animated_card = self.canvas.create_image(from_x, from_y, image=img, anchor='nw', tags="animated")
+            
+            # Calcular pasos de animación
+            steps = 20
+            dx = (to_x - from_x) / steps
+            dy = (to_y - from_y) / steps
+            
+            def move_step(step):
+                if step <= steps:
+                    self.canvas.move(animated_card, dx, dy)
+                    self.parent.after(30, lambda: move_step(step + 1))
+                else:
+                    self.canvas.delete(animated_card)
+                    self.animation_running = False
+                    if callback:
+                        callback()
+            
+            move_step(0)
 
     def get_card_destination(self, card):
         """Método auxiliar para obtener el destino de una carta"""

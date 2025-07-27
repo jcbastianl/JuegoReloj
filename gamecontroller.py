@@ -30,26 +30,60 @@ class GameController:
         if self.model.is_game_over or self.model.game_mode != 'manual':
             return
         
+        # Si hay una revelación pendiente, cualquier clic la completa
+        if self.model.pending_reveal:
+            revealed_card = self.model.complete_manual_move()
+            if revealed_card:
+                self.view.show_revealed_card(revealed_card)
+                self.view.show_status_message(f"Nueva carta revelada: {revealed_card}. Haz clic en el montón correcto.")
+            else:
+                self.model.is_game_over = True
+                self.parent.after(1000, self.check_game_over)
+            self.update_view()
+            return
+        
+        # Lógica normal de movimiento
         success, message = self.model.manual_play_step(pile_index)
         self.view.show_status_message(message)
-        self.update_view()
+        
+        if success:
+            # Ocultar carta revelada y actualizar
+            self.view.hide_revealed_card()
+            self.update_view()
         
         if self.model.is_game_over:
-            self.parent.after(1000, self.check_game_over)  # Pequeña pausa antes de mostrar resultado
+            self.parent.after(1000, self.check_game_over)
             
     def run_auto_turn(self):
         if self.model.is_game_over:
             self.check_game_over()
             return
         
+        if not self.model.current_card:
+            self.check_game_over()
+            return
+            
+        # Obtener información del movimiento antes de ejecutarlo
+        card_to_move = self.model.current_card
+        destination = self.model.get_card_destination(card_to_move)
+        
+        # Determinar de dónde viene la carta (centro si es la primera, o del último montón)
+        source_pile = self.model.last_move_from if self.model.last_move_from else 13
+        
+        # Ejecutar el movimiento
         success, message = self.model.auto_play_step()
-        self.view.show_status_message(message)
-        self.update_view()
-
-        if not self.model.is_game_over:
-            self.parent.after(1500, self.run_auto_turn)  # Pausa más larga para mejor visualización
-        else:
-            self.parent.after(1000, self.check_game_over)  # Pausa antes de mostrar resultado
+        
+        # Animar el movimiento
+        def after_animation():
+            self.view.show_status_message(message)
+            self.update_view()
+            if not self.model.is_game_over:
+                self.parent.after(800, self.run_auto_turn)
+            else:
+                self.parent.after(1000, self.check_game_over)
+        
+        # Iniciar animación
+        self.view.animate_card_move(card_to_move, source_pile, destination, after_animation)
 
     def update_view(self):
         board_state = self.model.get_board_state()
