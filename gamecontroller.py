@@ -13,16 +13,26 @@ class GameController:
         self.show_main_menu()
 
     def show_main_menu(self):
+        self.model.is_game_over = True
+        self.model.game_mode = None
         self.view.display_menu()
 
     def start_new_game(self, mode):
+        """
+        Esta función ahora se asegura de que la lógica y el dibujado
+        ocurran en el orden correcto, evitando la pantalla verde.
+        """
+        # 1. Configurar la lógica del juego en el modelo
         self.model.game_mode = mode
         self.model.shuffle_and_deal()
+        
+        # 2. Forzar la actualización de la vista para dibujar el tablero
         self.update_view()
 
+        # 3. Iniciar el modo de juego correspondiente
         if mode == 'auto':
             self.view.show_status_message("Modo Automático iniciado. Observa cómo se juega.")
-            self.parent.after(1000, self.run_auto_turn)  # Dar tiempo para ver el estado inicial
+            self.parent.after(1000, self.run_auto_turn)
         else:
             self.view.show_status_message("Modo Manual iniciado. Haz clic en el montón correcto.")
 
@@ -30,85 +40,72 @@ class GameController:
         if self.model.is_game_over or self.model.game_mode != 'manual':
             return
 
-        # Si hay una revelación pendiente, solo aceptar clic en el montón correcto
         if self.model.pending_reveal:
             if pile_index == self.model.pending_reveal:
                 revealed_card = self.model.try_reveal_from_pile(pile_index)
                 if revealed_card:
                     self.view.show_revealed_card(revealed_card, pile_index)
-                    self.view.show_status_message(f"Nueva carta revelada: {revealed_card}. Haz clic en el montón correcto para moverla.")
+                    self.view.show_status_message(f"Nueva carta revelada: {revealed_card}. ¡A jugar!")
                 else:
                     self.model.is_game_over = True
-                    self.parent.after(1000, self.check_game_over)
+                    self.parent.after(500, self.check_game_over)
                 self.update_view()
             else:
-                self.view.show_status_message(f"Debes hacer clic en el montón {self.model.pending_reveal} para revelar la siguiente carta.")
+                self.view.show_status_message(f"Debes hacer clic en el montón {self.model.pending_reveal} para revelar.")
             return
 
-        # Lógica normal de movimiento
-        success, message = self.model.manual_play_step(clicked_pile)
+        success, message = self.model.manual_play_step(pile_index)
         self.view.show_status_message(message)
 
         if success:
-            # Ocultar carta revelada anterior y actualizar
             self.view.hide_revealed_card()
             self.update_view()
 
         if self.model.is_game_over:
-            self.parent.after(1000, self.check_game_over)
+            self.parent.after(500, self.check_game_over)
 
     def run_auto_turn(self):
-        if self.model.is_game_over:
+        if self.model.is_game_over or not self.model.current_card:
             self.check_game_over()
             return
 
-        if not self.model.current_card:
-            self.check_game_over()
-            return
-
-        # Obtener información del movimiento antes de ejecutarlo
         card_to_move = self.model.current_card
         destination = self.model.get_card_destination(card_to_move)
-
-        # Determinar de dónde viene la carta (centro si es la primera, o del último montón)
-        source_pile = self.model.last_move_from if self.model.last_move_from else 13
-
-        # Ejecutar el movimiento
+        source_pile = self.model.last_move_from if self.model.last_move_from is not None else 13
+        
         success, message = self.model.auto_play_step()
 
-        # Animar el movimiento
         def after_animation():
             self.view.show_status_message(message)
             self.update_view()
             if not self.model.is_game_over:
                 self.parent.after(800, self.run_auto_turn)
             else:
-                self.parent.after(1000, self.check_game_over)
+                self.parent.after(500, self.check_game_over)
 
-        # Iniciar animación
         self.view.animate_card_move(card_to_move, source_pile, destination, after_animation)
 
     def update_view(self):
         board_state = self.model.get_board_state()
         self.view.draw_board(board_state)
-        # El mensaje ya se maneja en los métodos individuales
+        # Actualizar también la información de la carta actual
+        current_card = board_state.get('current_card')
+        self.view.update_status_labels(current_card)
 
     def check_game_over(self):
-        status = self.model.check_game_status()
-        if status != 'ongoing':
-            self.model.is_game_over = True
+        if self.model.is_game_over:
+            status = self.model.check_game_status()
             if status == 'win':
                 message = "¡GANASTE! Todas las cartas están en su lugar correcto."
             else:
-                message = "¡Perdiste! Salieron 4 Reyes o no pudiste completar el juego."
-
-            self.update_view()
+                message = "¡Perdiste! Salieron los 4 Reyes antes de tiempo."
+            
             self.view.show_game_over_message("Juego Terminado", message)
             return True
         return False
-
+    
     def shuffle_cards(self):
-        """Baraja las cartas - solo permitido cuando no hay juego activo"""
+        """Baraja las cartas con animación - solo permitido cuando no hay juego activo"""
         # Verificar si hay un juego en progreso
         if hasattr(self.model, 'game_mode') and self.model.game_mode and not self.model.is_game_over:
             self.view.show_status_message("❌ No puedes barajar durante un juego activo. Termina el juego primero.")
@@ -117,27 +114,47 @@ class GameController:
         # Mostrar mensaje de barajado
         self.view.show_status_message("🎲 Barajando cartas...")
         
-        # Baraja directamente
-        self.model.shuffle_and_deal()
+        # Definir qué hacer después de la animación
+        def after_shuffle_animation():
+            try:
+                # Baraja las cartas en el modelo
+                self.model.shuffle_and_deal()
+                
+                # Imprimir orden de las cartas en consola
+                print("\n" + "="*50)
+                print("🎴 NUEVO ORDEN DE CARTAS DESPUÉS DEL BARAJADO:")
+                print("="*50)
+                
+                for pile_num in range(1, 14):
+                    cards_in_pile = self.model.piles_hidden[pile_num]
+                    pile_name = self._get_pile_name(pile_num)
+                    print(f"Montón {pile_num:2d} ({pile_name:>11}): {cards_in_pile}")
+                
+                print("="*50)
+                print(f"Total de cartas: {sum(len(pile) for pile in self.model.piles_hidden.values())}")
+                print("="*50 + "\n")
+                
+                # Volver al menú principal después de barajar
+                self.show_main_menu()
+                self.view.show_status_message("¡Cartas barajadas! Selecciona un modo de juego.")
+                
+            except Exception as e:
+                print(f"Error en after_shuffle_animation: {e}")
+                # Si hay error, al menos volver al menú
+                self.show_main_menu()
         
-        # Imprimir orden de las cartas en consola
-        print("\n" + "="*50)
-        print("🎴 NUEVO ORDEN DE CARTAS DESPUÉS DEL BARAJADO:")
-        print("="*50)
-        
-        for pile_num in range(1, 14):
-            cards_in_pile = self.model.piles_hidden[pile_num]
-            pile_name = self._get_pile_name(pile_num)
-            print(f"Montón {pile_num:2d} ({pile_name:>11}): {cards_in_pile}")
-        
-        print("="*50)
-        print(f"Total de cartas: {sum(len(pile) for pile in self.model.piles_hidden.values())}")
-        print("="*50 + "\n")
-        
-        # Volver al menú principal después de barajar
-        self.show_main_menu()
-        self.view.show_status_message("¡Cartas barajadas! Orden mostrado en consola. Selecciona un modo de juego.")
+        # Iniciar la animación de barajado con callback
+        self.view.animate_shuffle(callback=after_shuffle_animation)
 
+    def end_current_game(self):
+        self.model.is_game_over = True
+        self.model.game_mode = None
+        self.view.show_status_message("Juego terminado. ¡Vuelve a intentarlo!")
+        self.parent.after(500, self.show_main_menu)
+
+    def quit_game(self):
+        self.parent.destroy()
+    
     def _get_pile_name(self, pile_num):
         """Convierte número de montón a nombre de reloj"""
         clock_names = {
@@ -146,18 +163,3 @@ class GameController:
             12: "Q (Queen)", 13: "K (Rey)"
         }
         return clock_names.get(pile_num, str(pile_num))
-    
-    def quit_game(self):
-        """Cierra la aplicación"""
-        self.parent.quit()
-        self.parent.destroy()
-    
-    def end_current_game(self):
-        """Termina el juego actual y vuelve al menú"""
-        if hasattr(self.model, 'game_mode') and self.model.game_mode and not self.model.is_game_over:
-            self.model.is_game_over = True
-            self.model.game_mode = None
-            self.view.show_status_message("🔴 Juego terminado por el usuario.")
-            self.parent.after(1000, self.show_main_menu)  # Esperar un poco antes de mostrar el menú
-        else:
-            self.show_main_menu()
