@@ -106,3 +106,43 @@ class GameController:
             self.view.show_game_over_message("Juego Terminado", message)
             return True
         return False
+
+    def shuffle_cards(self):
+        """Baraja las cartas con animación - solo permitido cuando no hay juego activo"""
+        # Verificar si hay un juego en progreso
+        if hasattr(self.model, 'game_mode') and self.model.game_mode and not self.model.is_game_over:
+            self.view.show_status_message("❌ No puedes barajar durante un juego activo. Termina el juego primero.")
+            return
+        
+        # Mostrar mensaje simple sin animación complicada
+        self.view.show_status_message("🎲 Barajando cartas...")
+        
+        # Baraja directamente sin animación
+        self.model.shuffle_and_deal()
+        
+        # Imprimir orden de las cartas en consola
+        print("\n" + "="*50)
+        print("🎴 NUEVO ORDEN DE CARTAS DESPUÉS DEL BARAJADO:")
+        print("="*50)
+        
+        for pile_num in range(1, 14):
+            cards_in_pile = self.model.piles_hidden[pile_num]
+            pile_name = self._get_pile_name(pile_num)
+            print(f"Montón {pile_num:2d} ({pile_name:>11}): {cards_in_pile}")
+        
+        print("="*50)
+        print(f"Total de cartas: {sum(len(pile) for pile in self.model.piles_hidden.values())}")
+        print("="*50 + "\n")
+        
+        # Volver al menú principal después de barajar
+        self.show_main_menu()
+        self.view.show_status_message("¡Cartas barajadas! Orden mostrado en consola. Selecciona un modo de juego.")
+    
+    def _get_pile_name(self, pile_num):
+        """Convierte número de montón a nombre de reloj"""
+        clock_names = {
+            1: "1 (As)", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6",
+            7: "7", 8: "8", 9: "9", 10: "10", 11: "J (Jack)",
+            12: "Q (Queen)", 13: "K (Rey)"
+        }
+        return clock_names.get(pile_num, str(pile_num))

@@ -222,11 +222,13 @@ class GameView(tk.Frame):
         self.status_label = tk.Label(self, text="Solitario Reloj", bg="darkgreen", fg="yellow", font=("Arial", 18, "bold"))
         self.canvas.create_window(ANCHO_CANVAS / 2, 40, window=self.status_label)
 
-        btn_auto = tk.Button(self.canvas, text="Modo Automático", command=lambda: self.controller.start_new_game('auto'), bg="#AED6F1", font=("Arial", 12), width=15)
-        btn_manual = tk.Button(self.canvas, text="Modo Manual", command=lambda: self.controller.start_new_game('manual'), bg="#A9DFBF", font=("Arial", 12), width=15)
+        btn_auto = tk.Button(self.canvas, text="Modo Automático", command=lambda: self.controller.start_new_game('auto'), bg="#AED6F1", font=("Arial", 10), width=12)
+        btn_manual = tk.Button(self.canvas, text="Modo Manual", command=lambda: self.controller.start_new_game('manual'), bg="#A9DFBF", font=("Arial", 10), width=12)
+        btn_shuffle = tk.Button(self.canvas, text="Barajar", command=lambda: self.controller.shuffle_cards(), bg="#F7DC6F", font=("Arial", 10), width=12)
         
-        self.canvas.create_window(ANCHO_CANVAS / 2, 120, window=btn_auto)
-        self.canvas.create_window(ANCHO_CANVAS / 2, 160, window=btn_manual)
+        self.canvas.create_window(ANCHO_CANVAS - 80, 60, window=btn_auto)
+        self.canvas.create_window(ANCHO_CANVAS - 80, 100, window=btn_manual)
+        self.canvas.create_window(ANCHO_CANVAS - 80, 140, window=btn_shuffle)
 
     def _calculate_positions(self):
         positions = {}
