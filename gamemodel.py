@@ -1,4 +1,4 @@
-# model.py
+# gamemodel.py
 import random
 
 VALORES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
@@ -9,15 +9,14 @@ class GameModel:
         self.deck = []
         self.piles_hidden = {}
         self.piles_visible = {}
-        self.selected_card_info = None # p. ej., (origen_idx, carta)
         self.is_game_over = True
         self.game_mode = None
         self.current_card = None  # La carta que se está jugando actualmente
+        self.last_move_message = ""
 
     def shuffle_and_deal(self):
         """Crea una baraja, la baraja y la reparte en los montones."""
         self.deck = [f"{valor}{palo}" for valor in VALORES for palo in PALOS]
-        # Usar un barajado realista o simple
         random.shuffle(self.deck)
         
         self.piles_hidden = {i: [] for i in range(1, 14)}
@@ -25,103 +24,97 @@ class GameModel:
             pile_idx = (i % 13) + 1
             self.piles_hidden[pile_idx].append(card)
         
-        # Todas las posiciones empiezan con cartas boca abajo excepto el centro
+        # Todas las posiciones empiezan con cartas boca abajo
         self.piles_visible = {i: 'back' for i in range(1, 14)}
         
-        # Revelar la primera carta del centro (posición 13)
+        # Revelar SOLO la primera carta del centro (posición 13) como carta actual
         if self.piles_hidden[13]:
-            self.piles_visible[13] = self.piles_hidden[13].pop(0)
-        
+            self.current_card = self.piles_hidden[13].pop(0)
+            self.last_move_message = f"Inicio: Primera carta {self.current_card}. Debe ir al montón {self.get_card_destination(self.current_card)}."
+        else:
+            self.is_game_over = True
+            self.last_move_message = "Error: No hay cartas en el centro."
+            
         self.is_game_over = False
-        self.selected_card_info = None
-        self.current_card = self.piles_visible[13]  # La carta actual en juego
 
-    def reveal_card(self, pile_index):
-        """Revela una carta de un montón si hay cartas ocultas."""
-        if self.piles_hidden[pile_index]:
-            card = self.piles_hidden[pile_index].pop(0)
-            self.piles_visible[pile_index] = card
-            return card
-        return None
 
     def get_card_destination(self, card):
-        """Obtiene el destino correcto para una carta según las reglas del reloj"""
+        """Obtiene el destino correcto para una carta según las reglas del reloj."""
         if not card or card == 'back':
             return None
-        
-        value = card[:-1]  # Remover el palo
-        
-        # Mapeo de valores a posiciones
-        value_to_position = {
-            'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
-            '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13
-        }
-        
-        return value_to_position.get(value, 13)
-
-    def make_move(self, card):
-        """Realiza un movimiento según las reglas del solitario reloj"""
-        if not card or card == 'back':
-            return False, "No hay carta válida para mover"
-        
-        destination = self.get_card_destination(card)
-        
-        # Verificar si el montón destino tiene cartas ocultas
-        if not self.piles_hidden[destination]:
-            # Si no hay cartas ocultas en el destino, el juego puede terminar
-            if destination == 13:  # Rey va al centro
-                return False, f"No hay más cartas en el centro. Rey {card} termina el juego."
-            else:
-                return False, f"No hay más cartas en el montón {destination}. Juego terminado."
-        
-        # Mover la carta al montón destino
-        next_card = self.piles_hidden[destination].pop(0)
-        self.piles_visible[destination] = card
-        
-        # La siguiente carta a jugar es la que se reveló
-        self.current_card = next_card
-        
-        return True, f"Carta {card} movida a posición {destination}. Nueva carta: {next_card}"
+        value = card[:-1]
+        return VALORES.index(value) + 1
 
     def auto_play_step(self):
-        """Ejecuta un paso del modo automático"""
+        """Ejecuta un paso del modo automático."""
         if not self.current_card or self.current_card == 'back':
-            return False, "No hay carta actual para jugar"
+            self.last_move_message = "No hay carta válida para mover."
+            return False, self.last_move_message
+            
+        card_to_move = self.current_card
+        destination = self.get_card_destination(card_to_move)
         
-        return self.make_move(self.current_card)
+        # PASO 1: Colocar la carta actual en su destino correcto
+        self.piles_visible[destination] = card_to_move
+        
+        # PASO 2: Revelar la siguiente carta del montón destino
+        if self.piles_hidden[destination]:
+            self.current_card = self.piles_hidden[destination].pop(0)
+            self.last_move_message = f"Movió {card_to_move} al montón {destination}. Nueva carta: {self.current_card}"
+            return True, self.last_move_message
+        else:
+            # Ya no hay cartas ocultas en el montón de destino
+            self.current_card = None
+            self.is_game_over = True
+            self.last_move_message = f"Movió {card_to_move} al montón {destination}. No hay más cartas. Fin del juego."
+            return False, self.last_move_message
+            
+    def manual_play_step(self, clicked_pile):
+        """Ejecuta un paso del modo manual."""
+        if not self.current_card:
+            return False, "No hay carta para mover. El juego terminó."
 
-    def check_win_loss_condition(self):
-        """
-        Verifica si se ha ganado o perdido el juego.
-        Retorna un estado: 'win', 'loss', 'ongoing'.
-        """
+        expected_destination = self.get_card_destination(self.current_card)
+        
+        if clicked_pile == expected_destination:
+            # Ejecutar el mismo movimiento que en modo automático
+            return self.auto_play_step()
+        else:
+            message = f"Movimiento incorrecto. La carta {self.current_card} debe ir al montón {expected_destination}."
+            return False, message
+
+
+    def check_game_status(self):
+        """Verifica si se ha ganado o perdido. Retorna 'win', 'loss', 'ongoing'."""
+        # Contar Reyes visibles
+        kings_visible = sum(1 for card in self.piles_visible.values() 
+                          if card != 'back' and card.startswith('K'))
+        
         # Condición de derrota: 4 Reyes visibles
-        visible_kings = sum(1 for card in self.piles_visible.values() 
-                          if card and card.startswith('K'))
-        
-        if visible_kings >= 4:
+        if kings_visible >= 4:
             return 'loss'
-
-        # Condición de victoria: todas las cartas están reveladas en sus posiciones correctas
-        if self._is_victory_state():
-            return 'win'
+            
+        # Condición de victoria: todas las posiciones 1-13 tienen la carta correcta
+        # Solo verificar si no hay carta actual (juego terminado)
+        if not self.current_card:
+            all_correct = True
+            for i in range(1, 14):
+                expected_value = VALORES[i-1]
+                actual_card = self.piles_visible[i]
+                if actual_card == 'back' or not actual_card.startswith(expected_value):
+                    all_correct = False
+                    break
+            
+            if all_correct:
+                return 'win'
+            else:
+                return 'loss'  # Terminó sin completar correctamente
         
-        # Verificar si no se puede continuar jugando
-        if self.current_card:
-            destination = self.get_card_destination(self.current_card)
-            if destination and not self.piles_hidden[destination]:
-                return 'loss'  # No hay más cartas para revelar en el destino
-        
+        # Si el juego se marcó como terminado por otra razón
+        if self.is_game_over:
+            return 'loss'
+            
         return 'ongoing'
-
-    def _is_victory_state(self):
-        """Función de ayuda para comprobar la condición de victoria."""
-        # Victoria: todas las cartas están reveladas (no hay cartas 'back' visibles)
-        # y todas las cartas ocultas han sido reveladas
-        all_revealed = all(card != 'back' for card in self.piles_visible.values())
-        no_hidden_cards = all(len(pile) == 0 for pile in self.piles_hidden.values())
-        
-        return all_revealed and no_hidden_cards
 
     def get_board_state(self):
         """Devuelve una representación del estado del tablero para la Vista."""
@@ -129,5 +122,5 @@ class GameModel:
             'visible': self.piles_visible,
             'hidden_counts': {i: len(self.piles_hidden[i]) for i in range(1, 14)},
             'current_card': self.current_card,
-            'selected': self.selected_card_info if self.selected_card_info else None
+            'message': self.last_move_message
         }

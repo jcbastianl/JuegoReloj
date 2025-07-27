@@ -5,7 +5,7 @@ from gamecontroller import GameController
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Solitario Cuadrado MVC")
+        self.title("Solitario Reloj MVC")
         self.geometry("800x700")
         self.resizable(False, False)
         

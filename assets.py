@@ -1,63 +1,51 @@
-import tkinter as tk
+# assets.py
 import os
+from PIL import Image, ImageTk
 
 class AssetManager:
     def __init__(self):
         self.images = {}
-        self.load_images()
+        self._load_images()
     
-    def load_images(self):
-        """Carga todas las imágenes de cartas o crea representaciones básicas"""
-        try:
-            from PIL import Image, ImageTk
-            self._load_pil_images()
-        except ImportError:
-            self._create_basic_images()
-    
-    def _load_pil_images(self):
-        """Carga imágenes usando PIL"""
-        from PIL import Image, ImageTk
-        
-        # Ruta base de las imágenes
+    def _load_images(self):
+        """Carga todas las imágenes de cartas."""
         img_path = "cartas_img"
-        
         if not os.path.exists(img_path):
-            self._create_basic_images()
+            print(f"Error: La carpeta '{img_path}' no fue encontrada.")
             return
-            
+
+        # Mapeo de nombres de archivo a nombres de juego
+        suits_map = {'club': '♣', 'diamond': '♦', 'heart': '♥', 'spade': '♠'}
+        values_map_to_file = {'A': '1', 'J': 'jack', 'Q': 'queen', 'K': 'king'}
+
         try:
             # Cargar imagen de reverso
-            back_img = Image.open(os.path.join(img_path, "back.png"))
-            back_img = back_img.resize((75, 110))
+            img_file = os.path.join(img_path, "back.png")
+            back_img = Image.open(img_file).resize((75, 110))
             self.images['back'] = ImageTk.PhotoImage(back_img)
-            
-            # Cargar imágenes de cartas
-            suits_map = {'club': '♣', 'diamond': '♦', 'heart': '♥', 'spade': '♠'}
-            values_map = {'1': 'A', 'jack': 'J', 'queen': 'Q', 'king': 'K'}
-            
-            for filename in os.listdir(img_path):
-                if filename.endswith('.png') and filename != 'back.png':
-                    try:
-                        parts = filename.replace('.png', '').split('_')
-                        if len(parts) == 2:
-                            suit, value = parts
-                            if suit in suits_map:
-                                card_value = values_map.get(value, value)
-                                card_name = f"{card_value}{suits_map[suit]}"
-                                
-                                img = Image.open(os.path.join(img_path, filename))
-                                img = img.resize((75, 110))
-                                self.images[card_name] = ImageTk.PhotoImage(img)
-                    except:
-                        continue
-        except:
-            self._create_basic_images()
-    
-    def _create_basic_images(self):
-        """Crea representaciones básicas sin PIL"""
-        # No necesitamos crear imágenes reales, la vista se encarga de dibujar
-        pass
-    
+
+            # Cargar todas las cartas
+            for palo_symbol in suits_map.values():
+                for valor in ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']:
+                    card_name = f"{valor}{palo_symbol}"
+                    
+                    # Construir el nombre del archivo
+                    palo_file = [k for k, v in suits_map.items() if v == palo_symbol][0]
+                    valor_file = values_map_to_file.get(valor, valor)
+                    
+                    filename = f"{palo_file}_{valor_file}.png"
+                    filepath = os.path.join(img_path, filename)
+                    
+                    if os.path.exists(filepath):
+                        img = Image.open(filepath).resize((75, 110))
+                        self.images[card_name] = ImageTk.PhotoImage(img)
+                    else:
+                        print(f"Advertencia: No se encontró la imagen {filepath}")
+
+        except Exception as e:
+            print(f"Error cargando las imágenes: {e}")
+            # Aquí se podría crear una imagen placeholder si fallara la carga
+            pass
+
     def get_image(self, card_name):
-        """Obtiene la imagen de una carta"""
-        return self.images.get(card_name, None)
+        return self.images.get(card_name, self.images.get('back'))
