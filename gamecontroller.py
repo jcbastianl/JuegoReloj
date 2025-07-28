@@ -104,11 +104,11 @@ class ControladorJuego:
         if self.modelo.juego_terminado:
             estado = self.modelo.verificar_estado_juego()
             if estado == 'victoria':
-                mensaje = "¡GANASTE! Todas las cartas están en su lugar correcto."
+                mensaje = "¡SÍ VAS A PASAR ANÁLISIS NUMÉRICO! 🎉\n\n¡Ganaste el Solitario Reloj!"
             else:
-                mensaje = "¡Perdiste! Salieron los 4 Reyes antes de tiempo."
+                mensaje = "NO VAS A PASAR ANÁLISIS NUMÉRICO 😢\n\n¡Perdiste! Salieron los 4 Reyes antes de tiempo."
             
-            self.vista.mostrar_mensaje_fin_juego("Juego Terminado", mensaje)
+            self.vista.mostrar_mensaje_fin_juego("¿Voy a pasar Análisis Numérico?", mensaje)
             return True
         return False
     

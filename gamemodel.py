@@ -24,6 +24,10 @@ class ModeloJuego:
     def barajar_y_repartir(self):
         #Crea baraja 
         self.mazo = [f"{valor}{palo}" for valor in VALORES for palo in PALOS]
+        
+        # self._ordenar_para_ganar()
+        # return
+        
         self._barajado_riffle()
         
         # Iniac montones va
@@ -40,10 +44,12 @@ class ModeloJuego:
         # Revelar primera carta del centro como carta actual
         if self.montones_ocultos[13]:
             self.carta_actual = self.montones_ocultos[13].pop(0)
-            self.mensaje_ultimo_movimiento = f"Inicio: Primera carta {self.carta_actual}. Debe ir al montón {self.obtener_destino_carta(self.carta_actual)}."
+            # self.mensaje_ultimo_movimiento = f"Inicio: Primera carta {self.carta_actual}. Debe ir al montón {self.obtener_destino_carta(self.carta_actual)}."
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
         else:
             self.juego_terminado = True
-            self.mensaje_ultimo_movimiento = "Error: No hay cartas en el centro."
+            # self.mensaje_ultimo_movimiento = "Error: No hay cartas en el centro."
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
             
         self.juego_terminado = False
 
@@ -112,12 +118,14 @@ class ModeloJuego:
         # Revelar siguiente carta del montón destino
         if self.montones_ocultos[destino]:
             self.carta_actual = self.montones_ocultos[destino].pop(0)
-            self.mensaje_ultimo_movimiento = f"Movió {carta_a_mover} al montón {destino}. Nueva carta: {self.carta_actual}"
+            # self.mensaje_ultimo_movimiento = f"Movió {carta_a_mover} al montón {destino}. Nueva carta: {self.carta_actual}"
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
             return True, self.mensaje_ultimo_movimiento
         else:
             self.carta_actual = None
             self.juego_terminado = True
-            self.mensaje_ultimo_movimiento = f"Movió {carta_a_mover} al montón {destino}. No hay más cartas. Fin del juego."
+            # self.mensaje_ultimo_movimiento = f"Movió {carta_a_mover} al montón {destino}. No hay más cartas. Fin del juego."
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
             return False, self.mensaje_ultimo_movimiento
             
     def revelar_siguiente_carta(self, indice_monton):
@@ -126,12 +134,14 @@ class ModeloJuego:
             carta = self.montones_ocultos[indice_monton].pop(0)
             self.carta_actual = carta
             self.revelacion_pendiente = None
-            self.mensaje_ultimo_movimiento = f"Nueva carta revelada: {carta}"
+            # self.mensaje_ultimo_movimiento = f"Nueva carta revelada: {carta}"
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
             return carta
         else:
             self.carta_actual = None
             self.juego_terminado = True
-            self.mensaje_ultimo_movimiento = f"No hay más cartas en el montón {indice_monton}. Fin del juego."
+            # self.mensaje_ultimo_movimiento = f"No hay más cartas en el montón {indice_monton}. Fin del juego."
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
             return None
 
     def ejecutar_paso_manual(self, monton_clickeado):
@@ -232,3 +242,32 @@ class ModeloJuego:
         self.mensaje_ultimo_movimiento = ""
         self.revelacion_pendiente = None
         self.ultimo_movimiento_desde = None
+    
+    def _ordenar_para_ganar(self):
+        
+        # Inicializar montones vacíos
+        self.montones_ocultos = {i: [] for i in range(1, 14)}
+        self.montones_visibles = {i: 'back' for i in range(1, 14)}
+        
+        # Crear una baraja simple que garantice victoria
+        # Solo usar cartas A, 2, 3 para que sea fácil de ganar
+        cartas_faciles = [
+            "A♠", "2♠", "3♠",  # Montón 1, 2, 3
+            "A♥", "2♥", "3♥",  # Repetir para más cartas
+            "A♦", "2♦", "3♦",
+            "A♣", "2♣", "3♣",
+            "A♠"  # Carta inicial en el centro
+        ]
+        
+        # Repartir las cartas fáciles
+        self.mazo = cartas_faciles
+        for i, carta in enumerate(self.mazo):
+            indice_monton = (i % 13) + 1
+            self.montones_ocultos[indice_monton].append(carta)
+        
+        # Revelar primera carta del centro
+        if self.montones_ocultos[13]:
+            self.carta_actual = self.montones_ocultos[13].pop(0)
+            self.mensaje_ultimo_movimiento = "¿Voy a pasar Análisis Numérico?"
+        
+        self.juego_terminado = False
