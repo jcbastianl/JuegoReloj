@@ -9,6 +9,7 @@ El Solitario Reloj es un juego de cartas donde las cartas se organizan en forma 
 ## 🎮 Cómo jugar
 
 ### Reglas básicas:
+
 1. **Inicio**: Se revela la primera carta del montón central (posición 13)
 2. **Movimiento**: El valor de la carta determina a qué montón va:
    - As → montón 1
@@ -22,17 +23,20 @@ El Solitario Reloj es un juego de cartas donde las cartas se organizan en forma 
 5. **Derrota**: Pierdes si aparecen 4 Reyes antes de revelar todas las cartas
 
 ### Modos de juego:
+
 - **Modo Automático**: El juego se ejecuta automáticamente
 - **Modo Manual**: Debes hacer clic en la posición correcta para cada carta
 
 ## 🚀 Instalación y Ejecución
 
 ### Requisitos:
+
 - Python 3.7 o superior
 - Tkinter (incluido con Python)
 - Pillow (para manejo de imágenes)
 
 ### Instalación:
+
 ```bash
 git clone https://github.com/jcbastianl/JuegoReloj.git
 cd JuegoReloj
@@ -40,6 +44,7 @@ pip install Pillow
 ```
 
 ### Ejecución:
+
 ```bash
 python app.py
 ```
@@ -65,30 +70,6 @@ El proyecto sigue el patrón de diseño **MVC (Modelo-Vista-Controlador)**:
 - **Vista (`gameview.py`)**: Maneja la interfaz gráfica y la visualización
 - **Controlador (`gamecontroller.py`)**: Coordina la interacción entre modelo y vista
 
-## 🎯 Características
-
-- ✅ Interfaz gráfica intuitiva
-- ✅ Modo automático y manual
-- ✅ Visualización en forma de reloj
-- ✅ Contador de cartas ocultas
-- ✅ Resaltado de carta actual
-- ✅ Mensajes informativos
-- ✅ Detección automática de victoria/derrota
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📝 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
-
 ## 👨‍💻 Autor
 
-Desarrollado con ❤️ usando Python y Tkinter
+Desarrollado por Joseph Balcazar

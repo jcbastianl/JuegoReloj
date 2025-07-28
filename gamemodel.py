@@ -1,171 +1,286 @@
-# gamemodel.py
+# gamemodel.py - Modelo del Juego Solitario Reloj
+# Este archivo contiene toda la lógica del juego, las reglas y el estado del juego
+
 import random
 
+# Definición de constantes del juego
 VALORES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 PALOS = ['♠', '♥', '♦', '♣']
 
-class GameModel:
+class ModeloJuego:
+    """
+    Clase que representa el modelo del juego Solitario Reloj.
+    
+    Maneja toda la lógica del juego incluyendo:
+    - Estado del tablero (montones de cartas)
+    - Reglas del juego (dónde colocar cada carta)
+    - Movimientos automáticos y manuales
+    - Condiciones de victoria y derrota
+    """
+    
     def __init__(self):
-        self.deck = []
-        self.piles_hidden = {}
-        self.piles_visible = {}
-        self.is_game_over = True
-        self.game_mode = None
-        self.current_card = None  # La carta que se está jugando actualmente
-        self.last_move_message = ""
-        self.pending_reveal = None  # Para el modo manual: montón del cual se debe revelar
-        self.last_move_from = None  # Desde qué montón se movió la última carta
-
-    def shuffle_and_deal(self):
-        """Crea una baraja, la baraja y la reparte en los montones."""
-        self.deck = [f"{valor}{palo}" for valor in VALORES for palo in PALOS]
-        random.shuffle(self.deck)
+        """
+        Inicializa el modelo del juego con su estado inicial.
         
-        self.piles_hidden = {i: [] for i in range(1, 14)}
-        for i, card in enumerate(self.deck):
-            pile_idx = (i % 13) + 1
-            self.piles_hidden[pile_idx].append(card)
+        El juego comienza sin cartas repartidas, esperando que el usuario
+        inicie un nuevo juego.
+        """
+        self.mazo = []  # Lista de todas las cartas de la baraja
+        self.montones_ocultos = {}  # Cartas boca abajo en cada montón (1-13)
+        self.montones_visibles = {}  # Carta visible en cada montón (o 'back' si no hay)
+        self.juego_terminado = True  # El juego inicia terminado hasta que se empiece uno nuevo
+        self.modo_juego = None  # 'auto' para automático, 'manual' para manual
+        self.carta_actual = None  # La carta que se está jugando actualmente
+        self.mensaje_ultimo_movimiento = ""  # Mensaje del último movimiento realizado
+        self.revelacion_pendiente = None  # Para modo manual: montón del cual se debe revelar
+        self.ultimo_movimiento_desde = None  # Desde qué montón se movió la última carta
+
+    def barajar_y_repartir(self):
+        """
+        Crea una baraja completa, la baraja aleatoriamente y la reparte en 13 montones.
+        
+        Proceso de repartición:
+        1. Crea una baraja de 52 cartas (13 valores × 4 palos)
+        2. Baraja las cartas aleatoriamente
+        3. Reparte las cartas en 13 montones de forma circular
+        4. Todas las cartas empiezan boca abajo
+        5. Revela la primera carta del centro (montón 13) como carta inicial
+        """
+        # Crear baraja completa
+        self.mazo = [f"{valor}{palo}" for valor in VALORES for palo in PALOS]
+        random.shuffle(self.mazo)
+        
+        # Inicializar los 13 montones vacíos
+        self.montones_ocultos = {i: [] for i in range(1, 14)}
+        
+        # Repartir las cartas de forma circular en los 13 montones
+        for i, carta in enumerate(self.mazo):
+            indice_monton = (i % 13) + 1
+            self.montones_ocultos[indice_monton].append(carta)
         
         # Todas las posiciones empiezan con cartas boca abajo
-        self.piles_visible = {i: 'back' for i in range(1, 14)}
+        self.montones_visibles = {i: 'back' for i in range(1, 14)}
         
         # Revelar SOLO la primera carta del centro (posición 13) como carta actual
-        if self.piles_hidden[13]:
-            self.current_card = self.piles_hidden[13].pop(0)
-            self.last_move_message = f"Inicio: Primera carta {self.current_card}. Debe ir al montón {self.get_card_destination(self.current_card)}."
+        if self.montones_ocultos[13]:
+            self.carta_actual = self.montones_ocultos[13].pop(0)
+            self.mensaje_ultimo_movimiento = f"Inicio: Primera carta {self.carta_actual}. Debe ir al montón {self.obtener_destino_carta(self.carta_actual)}."
         else:
-            self.is_game_over = True
-            self.last_move_message = "Error: No hay cartas en el centro."
+            self.juego_terminado = True
+            self.mensaje_ultimo_movimiento = "Error: No hay cartas en el centro."
             
-        self.is_game_over = False
+        self.juego_terminado = False
 
-
-    def get_card_destination(self, card):
-        """Obtiene el destino correcto para una carta según las reglas del reloj."""
-        if not card or card == 'back':
+    def obtener_destino_carta(self, carta):
+        """
+        Obtiene el destino correcto para una carta según las reglas del Solitario Reloj.
+        
+        Reglas:
+        - As (A) va al montón 1
+        - Números 2-10 van a sus montones correspondientes
+        - Jack (J) va al montón 11
+        - Queen (Q) va al montón 12  
+        - King (K) va al montón 13 (centro)
+        
+        Args:
+            carta: String representando la carta (ej: "A♠", "K♥", "10♦")
+            
+        Returns:
+            int: Número del montón destino (1-13), o None si la carta no es válida
+        """
+        if not carta or carta == 'back':
             return None
-        value = card[:-1]
-        return VALORES.index(value) + 1
+        valor = carta[:-1]  # Extraer el valor sin el palo
+        return VALORES.index(valor) + 1
 
-    def auto_play_step(self):
-        """Ejecuta un paso del modo automático."""
-        if not self.current_card:
-            self.last_move_message = "No hay carta válida para mover."
-            return False, self.last_move_message
+    def ejecutar_paso_automatico(self):
+        """
+        Ejecuta un paso completo del modo automático.
+        
+        Proceso automático:
+        1. Toma la carta actual y la coloca en su montón destino correcto
+        2. Revela la siguiente carta del montón destino
+        3. Actualiza el estado del juego
+        
+        Returns:
+            tuple: (exito, mensaje) donde:
+                - exito: True si el movimiento fue exitoso, False si el juego terminó
+                - mensaje: Descripción del movimiento realizado
+        """
+        if not self.carta_actual:
+            self.mensaje_ultimo_movimiento = "No hay carta válida para mover."
+            return False, self.mensaje_ultimo_movimiento
             
-        card_to_move = self.current_card
-        destination = self.get_card_destination(card_to_move)
-        self.last_move_from = destination
+        carta_a_mover = self.carta_actual
+        destino = self.obtener_destino_carta(carta_a_mover)
+        self.ultimo_movimiento_desde = destino
         
         # PASO 1: Colocar la carta actual en su destino correcto
-        self.piles_visible[destination] = card_to_move
+        self.montones_visibles[destino] = carta_a_mover
         
         # PASO 2: Revelar la siguiente carta del montón destino
-        if self.piles_hidden[destination]:
-            self.current_card = self.piles_hidden[destination].pop(0)
-            self.last_move_message = f"Movió {card_to_move} al montón {destination}. Nueva carta: {self.current_card}"
-            return True, self.last_move_message
+        if self.montones_ocultos[destino]:
+            self.carta_actual = self.montones_ocultos[destino].pop(0)
+            self.mensaje_ultimo_movimiento = f"Movió {carta_a_mover} al montón {destino}. Nueva carta: {self.carta_actual}"
+            return True, self.mensaje_ultimo_movimiento
         else:
             # Ya no hay cartas ocultas en el montón de destino
-            self.current_card = None
-            self.is_game_over = True
-            self.last_move_message = f"Movió {card_to_move} al montón {destination}. No hay más cartas. Fin del juego."
-            return False, self.last_move_message
+            self.carta_actual = None
+            self.juego_terminado = True
+            self.mensaje_ultimo_movimiento = f"Movió {carta_a_mover} al montón {destino}. No hay más cartas. Fin del juego."
+            return False, self.mensaje_ultimo_movimiento
             
-    def reveal_next_card(self, pile_index):
-        """Revela la siguiente carta de un montón específico"""
-        if self.piles_hidden[pile_index]:
-            card = self.piles_hidden[pile_index].pop(0)
-            self.current_card = card
-            self.pending_reveal = None
-            self.last_move_message = f"Nueva carta revelada: {card}"
-            return card
+    def revelar_siguiente_carta(self, indice_monton):
+        """
+        Revela la siguiente carta de un montón específico.
+        
+        Args:
+            indice_monton: Número del montón del cual revelar la carta (1-13)
+            
+        Returns:
+            str: La carta revelada, o None si no hay más cartas
+        """
+        if self.montones_ocultos[indice_monton]:
+            carta = self.montones_ocultos[indice_monton].pop(0)
+            self.carta_actual = carta
+            self.revelacion_pendiente = None
+            self.mensaje_ultimo_movimiento = f"Nueva carta revelada: {carta}"
+            return carta
         else:
-            self.current_card = None
-            self.is_game_over = True
-            self.last_move_message = f"No hay más cartas en el montón {pile_index}. Fin del juego."
+            self.carta_actual = None
+            self.juego_terminado = True
+            self.mensaje_ultimo_movimiento = f"No hay más cartas en el montón {indice_monton}. Fin del juego."
             return None
 
-    def manual_play_step(self, clicked_pile):
-        """Ejecuta un paso del modo manual."""
-        if not self.current_card:
+    def ejecutar_paso_manual(self, monton_clickeado):
+        """
+        Ejecuta un paso del modo manual basado en el clic del usuario.
+        
+        En modo manual, el usuario debe hacer clic en el montón correcto
+        donde debe ir la carta actual.
+        
+        Args:
+            monton_clickeado: Número del montón donde hizo clic el usuario
+            
+        Returns:
+            tuple: (exito, mensaje) describiendo el resultado del movimiento
+        """
+        if not self.carta_actual:
             return False, "No hay carta para mover. El juego terminó."
 
-        expected_destination = self.get_card_destination(self.current_card)
+        destino_esperado = self.obtener_destino_carta(self.carta_actual)
         
-        if clicked_pile == expected_destination:
-            # Mover la carta a su destino
-            card_to_move = self.current_card
-            self.piles_visible[expected_destination] = card_to_move
-            self.last_move_from = expected_destination
+        if monton_clickeado == destino_esperado:
+            # Mover la carta a su destino correcto
+            carta_a_mover = self.carta_actual
+            self.montones_visibles[destino_esperado] = carta_a_mover
+            self.ultimo_movimiento_desde = destino_esperado
             
             # Preparar para revelar la siguiente carta DESDE EL MISMO MONTÓN
-            self.pending_reveal = expected_destination
-            self.current_card = None  # Temporalmente sin carta actual
+            self.revelacion_pendiente = destino_esperado
+            self.carta_actual = None  # Temporalmente sin carta actual
             
-            message = f"Carta {card_to_move} colocada en montón {expected_destination}. Haz clic en el montón {expected_destination} para revelar la siguiente."
-            return True, message
+            mensaje = f"Carta {carta_a_mover} colocada en montón {destino_esperado}. Haz clic en el montón {destino_esperado} para revelar la siguiente."
+            return True, mensaje
         else:
-            message = f"Movimiento incorrecto. La carta {self.current_card} debe ir al montón {expected_destination}."
-            return False, message
+            mensaje = f"Movimiento incorrecto. La carta {self.carta_actual} debe ir al montón {destino_esperado}."
+            return False, mensaje
 
-    def try_reveal_from_pile(self, clicked_pile):
-        """Intenta revelar una carta del montón especificado (solo si es el correcto)"""
-        if self.pending_reveal and clicked_pile == self.pending_reveal:
-            return self.reveal_next_card(self.pending_reveal)
+    def intentar_revelar_de_monton(self, monton_clickeado):
+        """
+        Intenta revelar una carta del montón especificado (solo si es el correcto).
+        
+        Args:
+            monton_clickeado: Número del montón donde se hizo clic
+            
+        Returns:
+            str: La carta revelada si el clic fue correcto, None en caso contrario
+        """
+        if self.revelacion_pendiente and monton_clickeado == self.revelacion_pendiente:
+            return self.revelar_siguiente_carta(self.revelacion_pendiente)
         return None
 
-
-    def check_game_status(self):
-        """Verifica si se ha ganado o perdido. Retorna 'win', 'loss', 'ongoing'."""
+    def verificar_estado_juego(self):
+        """
+        Verifica el estado actual del juego para determinar victoria, derrota o continuación.
+        
+        Condiciones:
+        - Victoria: Todas las cartas están en sus posiciones correctas
+        - Derrota: Los 4 Reyes están visibles antes de completar el juego
+        - En progreso: El juego puede continuar
+        
+        Returns:
+            str: 'victoria', 'derrota', o 'en_progreso'
+        """
         # Contar Reyes visibles
-        kings_visible = sum(1 for card in self.piles_visible.values() 
-                          if card != 'back' and card.startswith('K'))
+        reyes_visibles = sum(1 for carta in self.montones_visibles.values() 
+                          if carta != 'back' and carta.startswith('K'))
         
         # Condición de derrota: 4 Reyes visibles
-        if kings_visible >= 4:
-            return 'loss'
+        if reyes_visibles >= 4:
+            return 'derrota'
             
         # Solo verificar victoria si el juego terminó (no hay carta actual)
-        if not self.current_card and self.is_game_over:
+        if not self.carta_actual and self.juego_terminado:
             # Verificar que todas las posiciones tengan la carta correcta
-            all_correct = True
-            total_cards_placed = 0
+            todas_correctas = True
+            total_cartas_colocadas = 0
             
             for i in range(1, 14):
-                expected_value = VALORES[i-1]
-                actual_card = self.piles_visible[i]
+                valor_esperado = VALORES[i-1]
+                carta_actual = self.montones_visibles[i]
                 
-                if actual_card != 'back':
-                    total_cards_placed += 1
-                    if not actual_card.startswith(expected_value):
-                        all_correct = False
+                if carta_actual != 'back':
+                    total_cartas_colocadas += 1
+                    if not carta_actual.startswith(valor_esperado):
+                        todas_correctas = False
                         break
                 else:
-                    all_correct = False
+                    todas_correctas = False
                     break
             
             # Solo es victoria si todas las 52 cartas están colocadas correctamente
-            total_hidden = sum(len(pile) for pile in self.piles_hidden.values())
+            total_ocultas = sum(len(monton) for monton in self.montones_ocultos.values())
             
-            if all_correct and total_cards_placed == 13 and total_hidden == 0:
-                return 'win'
+            if todas_correctas and total_cartas_colocadas == 13 and total_ocultas == 0:
+                return 'victoria'
             else:
-                return 'loss'
+                return 'derrota'
         
         # Si el juego se marcó como terminado por otra razón
-        if self.is_game_over:
-            return 'loss'
+        if self.juego_terminado:
+            return 'derrota'
             
-        return 'ongoing'
+        return 'en_progreso'
 
-    def get_board_state(self):
-        """Devuelve una representación del estado del tablero para la Vista."""
+    def verificar_victoria(self):
+        """
+        Método específico para verificar si el juego fue ganado.
+        
+        Returns:
+            bool: True si el juego fue ganado, False en caso contrario
+        """
+        return self.verificar_estado_juego() == 'victoria'
+
+    def obtener_estado_tablero(self):
+      
         return {
-            'visible': self.piles_visible,
-            'hidden_counts': {i: len(self.piles_hidden[i]) for i in range(1, 14)},
-            'current_card': self.current_card,
-            'message': self.last_move_message,
-            'pending_reveal': self.pending_reveal,
-            'last_move_from': self.last_move_from
+            'visible': self.montones_visibles,
+            'conteos_ocultos': {i: len(self.montones_ocultos[i]) for i in range(1, 14)},
+            'carta_actual': self.carta_actual,
+            'mensaje': self.mensaje_ultimo_movimiento,
+            'revelacion_pendiente': self.revelacion_pendiente,
+            'ultimo_movimiento_desde': self.ultimo_movimiento_desde
         }
+
+    def reiniciar_juego(self):
+      
+        self.mazo = []
+        self.montones_ocultos = {}
+        self.montones_visibles = {}
+        self.juego_terminado = True
+        self.modo_juego = None
+        self.carta_actual = None
+        self.mensaje_ultimo_movimiento = ""
+        self.revelacion_pendiente = None
+        self.ultimo_movimiento_desde = None
